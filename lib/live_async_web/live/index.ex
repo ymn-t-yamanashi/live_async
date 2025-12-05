@@ -1,38 +1,59 @@
 defmodule LiveAsyncWeb.SampleLive.Index do
   use LiveAsyncWeb, :live_view
-end
 
-defmodule HeroComponent do
-  use Phoenix.LiveComponent
-  def mount(socket), do: {:ok, assign(socket, :list, [])}
-  def handle_event("say_hello", _, socket), do: {:noreply, assign_async(socket, :list, &run/0)}
+  def mount(_params, _session, socket) do
+    socket =
+      assign(socket, text: "実行ボタンを押してください")
+      |> assign(btn: true)
+      |> assign(ret: nil)
 
-  # def handle_async(:list, {:ok, result_map}, socket) do
-  #   # => %{list: [10]}
-  #   IO.inspect(result_map, label: "Async Result Map")
-
-  #   # result_map に含まれる値をソケットにマージする
-  #   {:noreply, assign(socket, result_map)}
-  # end
-
-  def handle_async(:list, {:ok, new_list}, socket) do
-    IO.inspect(new_list, label: "New List")
-    # new_list は [:rand.uniform(10)] のようなリスト
-    {:noreply, assign(socket, :list, new_list)}
+    {:ok, socket}
   end
 
-  def run() do
-    Process.sleep(1000)
-    new_list = [:rand.uniform(10)]
-    {:ok, %{list: new_list}}
+  def handle_event("start", _, socket) do
+    pid = self()
+
+    socket =
+      assign(socket, btn: false)
+      |> assign(ret: nil)
+      |> assign_async(:ret, fn -> run(pid) end)
+
+    {:noreply, socket}
+  end
+
+  def run(pid) do
+    1..100
+    |> Enum.each(fn x -> run_sub(x, pid) end)
+
+    Process.send(pid, {:end, "完了しました"}, [])
+    {:ok, %{ret: Enum.random(1..10)}}
+  end
+
+  def run_sub(no, pid) do
+    Process.sleep(20)
+    Process.send(pid, {:run, "処理中#{no} %"}, [])
+  end
+
+  def handle_info({:run, msg}, socket) do
+    {:noreply, assign(socket, text: msg)}
+  end
+
+  def handle_info({:end, msg}, socket) do
+    socket =
+      assign(socket, text: msg)
+      |> assign(btn: true)
+
+    {:noreply, socket}
   end
 
   def render(assigns) do
     ~H"""
-    <a href="#" phx-click="say_hello" phx-target={@myself}>
-      <p>Say hello!</p>
-      <p>{inspect(@list)}</p>
-    </a>
+    <Layouts.flash_group flash={@flash} />
+    <div class="p-5">
+      <button disabled={!@btn} class="btn" phx-click="start">実行</button>
+      <p class="m-2">{@text}</p>
+      <p class="m-2">{inspect(@ret)}</p>
+    </div>
     """
   end
 end
