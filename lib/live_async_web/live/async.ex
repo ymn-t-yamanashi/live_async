@@ -37,18 +37,16 @@ defmodule LiveAsyncWeb.AsyncTest do
   end
 
   def run_sub(no, pid) do
-    Process.sleep(30)
+    Process.sleep(20)
     Process.send(pid, {:run, "処理中#{no} %"}, [])
   end
 
-  @spec handle_info({:end, any()} | {:run, any()}, any()) :: {:noreply, any()}
   def handle_info({:run, msg}, socket) do
     socket = assign(socket, text: msg)
     {:noreply, socket}
   end
 
   def handle_info({:end, msg}, socket) do
-
     socket =
       assign(socket, text: msg)
       |> assign(btn: true)
